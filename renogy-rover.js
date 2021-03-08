@@ -20,12 +20,12 @@ class RenogyRover {
       throw "serial port is required";
     }
 
-    this.port = config.port;
-    this.trace = config.trace;
-    this.traceError = config.traceError;
-    this.baudrate = config.baudrate;
-    this.modbusID = config.modbusID;
-    this.modbusTimeout = config.modbusTimeout;
+    this.port = this.config.port;
+    this.trace = this.config.trace;
+    this.traceError = this.config.traceError;
+    this.baudrate = this.config.baudrate;
+    this.modbusID = this.config.modbusID;
+    this.modbusTimeout = this.config.modbusTimeout;
 
     // client is the modbus client interface for low level modbus transactions.
     this.client = null;
