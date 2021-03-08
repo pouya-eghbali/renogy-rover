@@ -71,7 +71,7 @@ const monitorPass = async (renogy) => {
   const readings = await getReadings(renogy).catch((err) => {
     console.log("");
     console.log(new Date(Date.now()).toISOString() + ":");
-    console.log("error getting readings error=" + error);
+    console.log("error getting readings error=" + err);
   });
   if (readings) printReadings(readings);
 };

@@ -168,7 +168,7 @@ class RenogyRover {
   //
   // Get Battery State.
   //
-  getBatteryState(callback) {
+  getBatteryState() {
     const batteryState = {};
     batteryState.stateOfCharge = 0;
     batteryState.voltage = 0.0;
@@ -214,7 +214,7 @@ class RenogyRover {
   //
   // Get historical, or slowly changing parameters.
   //
-  getHistoricalParameters(callback) {
+  getHistoricalParameters() {
     const hist = {};
 
     hist.batteryVoltageMinForDay = 0.0;
