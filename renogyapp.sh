@@ -1,2 +1,2 @@
-# Your port will surely differ.
-node renogyapp.js /dev/cu.usbserial-A906D4OX 15
+#!/bin/sh
+node renogyapp.js $1 15
