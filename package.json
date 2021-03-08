@@ -10,7 +10,8 @@
   "license": "MIT",
   "keywords": [],
   "dependencies": {
-    "modbus-serial": "^6.0.1",
-    "serialport": "^4.0.7"
+    "@serialport/bindings": "^9.0.7",
+    "modbus-serial": "^8.0.1",
+    "serialport": "^9.0.7"
   }
 }
