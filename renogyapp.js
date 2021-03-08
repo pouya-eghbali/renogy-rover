@@ -56,9 +56,8 @@ const monitorLoop = async (port, monitor_interval) => {
   //
   // Do one pass right away, then on the supplied interval
   //
-  getReadings(renogy, function (_, readings) {
-    printReadings(readings);
-  });
+  const readings = await getReadings(renogy).catch((_) => {});
+  if (readings) printReadings(readings);
 
   setInterval(monitorPass, monitor_interval * 1000, renogy);
 };
