@@ -36,7 +36,7 @@ class RenogyRover {
   getModbusClient() {
     return this.client;
   }
-  connect(callback) {
+  connect() {
     // create an empty modbus client
     this.client = new ModbusRTU();
 
@@ -54,10 +54,12 @@ class RenogyRover {
     //
     // this.client.connectRTU(this.port, { baudrate: this.baudrate }, callback);
     //
-    this.client.connectRTUBuffered(
-      this.port,
-      { baudRate: this.baudrate },
-      callback
+    return new Promise((resolve) =>
+      this.client.connectRTUBuffered(
+        this.port,
+        { baudRate: this.baudrate },
+        resolve
+      )
     );
   }
   //
@@ -68,46 +70,48 @@ class RenogyRover {
   //
   // callback(error, data)
   //
-  getProductModel(callback) {
+  getProductModel() {
     //
     // 0x000C (16) - Product Model.
     //
     const registerBase = 0x000c;
     const registerLength = 16;
 
-    this.readHoldingRegisters(registerBase, registerLength, (err, data) => {
-      if (err != null) {
-        if (this.trace) console.log("error reading product model error=" + err);
+    return new Promise((resolve, reject) => {
+      this.readHoldingRegisters(registerBase, registerLength, (err, data) => {
+        if (err != null) {
+          if (this.trace)
+            console.log("error reading product model error=" + err);
 
-        if (err.message != null && this.trace)
-          console.log(
-            "error reading product model error.message=" + err.message
-          );
+          if (err.message != null && this.trace)
+            console.log(
+              "error reading product model error.message=" + err.message
+            );
 
-        callback(err, null);
-        return;
-      }
+          return reject(err);
+        }
 
-      //
-      // Structure of returned data from json dump:
-      //
-      // data.data[] - array of data
-      // data.buffer - node.js buffer type
-      //
-      //
-      // data.buffer is a node.js Buffer type.
-      //
-      // https://nodejs.org/api/buffer.html
-      // https://nodejs.org/api/buffer.html#buffer_buf_tostring_encoding_start_end
-      //
-      //console.log("data=");
-      //dumpasjson(data);
-      //
-      const model = data.buffer.toString("ascii");
-      if (this.trace) console.log("model=" + model);
+        //
+        // Structure of returned data from json dump:
+        //
+        // data.data[] - array of data
+        // data.buffer - node.js buffer type
+        //
+        //
+        // data.buffer is a node.js Buffer type.
+        //
+        // https://nodejs.org/api/buffer.html
+        // https://nodejs.org/api/buffer.html#buffer_buf_tostring_encoding_start_end
+        //
+        //console.log("data=");
+        //dumpasjson(data);
+        //
+        const model = data.buffer.toString("ascii");
+        if (this.trace) console.log("model=" + model);
 
-      // Model shows as "     ML2420N"
-      callback(null, model);
+        // Model shows as "     ML2420N"
+        resolve(model);
+      });
     });
   }
   //
@@ -124,7 +128,7 @@ class RenogyRover {
   // 0x
   //
   //
-  getPanelState(callback) {
+  getPanelState() {
     const panelState = {};
     panelState.voltage = 0.0;
     panelState.current = 0.0;
@@ -138,25 +142,27 @@ class RenogyRover {
     const registerBase = 0x0107;
     const registerLength = 3;
 
-    this.readHoldingRegisters(registerBase, registerLength, (err, data) => {
-      if (err != null) {
-        if (this.trace) console.log("error reading panel voltage error=" + err);
+    return new Promise((resolve, reject) => {
+      this.readHoldingRegisters(registerBase, registerLength, (err, data) => {
+        if (err != null) {
+          if (this.trace)
+            console.log("error reading panel voltage error=" + err);
 
-        if (err.message != null && this.trace)
-          console.log(
-            "error reading panel voltage error.message=" + err.message
-          );
+          if (err.message != null && this.trace)
+            console.log(
+              "error reading panel voltage error.message=" + err.message
+            );
 
-        callback(err, null);
-        return;
-      }
+          return reject(err);
+        }
 
-      // modbus registers are 16 bit
-      panelState.voltage = data.buffer.readInt16BE(0);
-      panelState.current = data.buffer.readInt16BE(2);
-      panelState.chargingPower = data.buffer.readInt16BE(4);
+        // modbus registers are 16 bit
+        panelState.voltage = data.buffer.readInt16BE(0);
+        panelState.current = data.buffer.readInt16BE(2);
+        panelState.chargingPower = data.buffer.readInt16BE(4);
 
-      callback(null, panelState);
+        return resolve(panelState);
+      });
     });
   }
   //
@@ -180,27 +186,29 @@ class RenogyRover {
     const registerBase = 0x0100;
     const registerLength = 4;
 
-    this.readHoldingRegisters(registerBase, registerLength, (err, data) => {
-      if (err != null) {
-        if (this.trace) console.log("error reading battery state error=" + err);
+    return new Promise((resolve, reject) => {
+      this.readHoldingRegisters(registerBase, registerLength, (err, data) => {
+        if (err != null) {
+          if (this.trace)
+            console.log("error reading battery state error=" + err);
 
-        if (err.message != null && this.trace)
-          console.log(
-            "error reading battery state error.message=" + err.message
-          );
+          if (err.message != null && this.trace)
+            console.log(
+              "error reading battery state error.message=" + err.message
+            );
 
-        callback(err, null);
-        return;
-      }
+          return reject(err);
+        }
 
-      // modbus registers are 16 bit
-      batteryState.stateOfCharge = data.buffer.readInt16BE(0);
-      batteryState.voltage = data.buffer.readInt16BE(2);
-      batteryState.chargingCurrent = data.buffer.readInt16BE(4);
-      batteryState.controllerTemperature = data.buffer.readInt8(6);
-      batteryState.batteryTemperature = data.buffer.readInt8(7);
+        // modbus registers are 16 bit
+        batteryState.stateOfCharge = data.buffer.readInt16BE(0);
+        batteryState.voltage = data.buffer.readInt16BE(2);
+        batteryState.chargingCurrent = data.buffer.readInt16BE(4);
+        batteryState.controllerTemperature = data.buffer.readInt8(6);
+        batteryState.batteryTemperature = data.buffer.readInt8(7);
 
-      callback(null, batteryState);
+        resolve(batteryState);
+      });
     });
   }
   //
@@ -234,36 +242,37 @@ class RenogyRover {
     const registerBase = 0x010b;
     const registerLength = 10;
 
-    this.readHoldingRegisters(registerBase, registerLength, (err, data) => {
-      if (err != null) {
-        if (this.trace)
-          console.log("error reading historical data error=" + err);
-
-        if (err.message != null && this.trace)
+    return new Promise((resolve, reject) => {
+      this.readHoldingRegisters(registerBase, registerLength, (err, data) => {
+        if (err != null) {
           if (this.trace)
-            console.log(
-              "error reading historical data error.message=" + err.message
-            );
+            console.log("error reading historical data error=" + err);
 
-        callback(err, null);
-        return;
-      }
+          if (err.message != null && this.trace)
+            if (this.trace)
+              console.log(
+                "error reading historical data error.message=" + err.message
+              );
 
-      //
-      // modbus registers are 16 bit
-      //
-      hist.batteryVoltageMinForDay = data.buffer.readInt16BE(0); // 0x010B
-      hist.batteryVoltageMaxForDay = data.buffer.readInt16BE(2); // 0x010C
-      hist.maxChargeCurrentForDay = data.buffer.readInt16BE(4); // 0x010D
-      hist.maxDischargeCurrentForDay = data.buffer.readInt16BE(6); // 0x010E
-      hist.maxChargePowerForDay = data.buffer.readInt16BE(8); // 0x010F
-      hist.maxDischargePowerForDay = data.buffer.readInt16BE(10); // 0x0110
-      hist.chargeingAmpHoursForDay = data.buffer.readInt16BE(12); // 0x0111
-      hist.dischargingAmpHoursForDay = data.buffer.readInt16BE(14); // 0x0112
-      hist.powerGenerationForDay = data.buffer.readInt16BE(16); // 0x0113
-      hist.powerConsumptionForDay = data.buffer.readInt16BE(18); // 0x0114
+          return reject(err);
+        }
 
-      callback(null, hist);
+        //
+        // modbus registers are 16 bit
+        //
+        hist.batteryVoltageMinForDay = data.buffer.readInt16BE(0); // 0x010B
+        hist.batteryVoltageMaxForDay = data.buffer.readInt16BE(2); // 0x010C
+        hist.maxChargeCurrentForDay = data.buffer.readInt16BE(4); // 0x010D
+        hist.maxDischargeCurrentForDay = data.buffer.readInt16BE(6); // 0x010E
+        hist.maxChargePowerForDay = data.buffer.readInt16BE(8); // 0x010F
+        hist.maxDischargePowerForDay = data.buffer.readInt16BE(10); // 0x0110
+        hist.chargeingAmpHoursForDay = data.buffer.readInt16BE(12); // 0x0111
+        hist.dischargingAmpHoursForDay = data.buffer.readInt16BE(14); // 0x0112
+        hist.powerGenerationForDay = data.buffer.readInt16BE(16); // 0x0113
+        hist.powerConsumptionForDay = data.buffer.readInt16BE(18); // 0x0114
+
+        resolve(hist);
+      });
     });
   }
   //

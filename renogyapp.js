@@ -12,7 +12,7 @@ const g_compactJSONOutput = false;
 // real time and longer term variables at their configured
 // intervals.
 //
-const monitorLoop = (port, monitor_interval) => {
+const monitorLoop = async (port, monitor_interval) => {
   console.log("renogy-rover monitor loop");
 
   const config = {};
@@ -29,40 +29,38 @@ const monitorLoop = (port, monitor_interval) => {
 
   const renogy = new rover.RenogyRover(config);
 
-  renogy.connect(function (result) {
-    if (result != null) {
-      console.log("connect error result=" + result);
-      return;
-    }
+  const result = await renogy.connect();
 
-    console.log("connected...");
+  if (result != null) {
+    console.log("connect error result=" + result);
+    return;
+  }
 
-    renogy.getProductModel(function (error, model) {
-      if (error != null) {
-        console.log("error reading model error=" + error);
-      } else {
-        console.log("Renogy Model is: ");
-        console.log(model);
-      }
+  console.log("connected...");
 
-      if (model.indexOf("ML2420N") != -1) {
-        console.log("model ML2420N supported by this application identified");
-      } else {
-        console.log("Warning Model not tested model=" + model);
-      }
-
-      console.log("");
-
-      //
-      // Do one pass right away, then on the supplied interval
-      //
-      getReadings(renogy, function (_, readings) {
-        printReadings(readings);
-      });
-
-      setInterval(monitorPass, monitor_interval * 1000, renogy);
-    });
+  const model = await renogy.getProductModel().catch((err) => {
+    console.log("error reading model error=" + err);
   });
+
+  console.log("Renogy Model is: ");
+  console.log(model);
+
+  if (model.indexOf("ML2420N") != -1) {
+    console.log("model ML2420N supported by this application identified");
+  } else {
+    console.log("Warning Model not tested model=" + model);
+  }
+
+  console.log("");
+
+  //
+  // Do one pass right away, then on the supplied interval
+  //
+  getReadings(renogy, function (_, readings) {
+    printReadings(readings);
+  });
+
+  setInterval(monitorPass, monitor_interval * 1000, renogy);
 };
 
 //
@@ -70,19 +68,13 @@ const monitorLoop = (port, monitor_interval) => {
 //
 // callback(error, readings)
 //
-const monitorPass = (renogy) => {
-  getReadings(renogy, function (error, readings) {
-    //
-    // Here you would log, send to the cloud, etc.
-    //
-    if (error == null) {
-      printReadings(readings);
-    } else {
-      console.log("");
-      console.log(new Date(Date.now()).toISOString() + ":");
-      console.log("error getting readings error=" + error);
-    }
+const monitorPass = async (renogy) => {
+  const readings = await getReadings(renogy).catch((err) => {
+    console.log("");
+    console.log(new Date(Date.now()).toISOString() + ":");
+    console.log("error getting readings error=" + error);
   });
+  if (readings) printReadings(readings);
 };
 
 //
@@ -90,7 +82,7 @@ const monitorPass = (renogy) => {
 //
 // callback(error, readings)
 //
-const getReadings = (renogy, callback) => {
+const getReadings = async (renogy) => {
   const readings = {};
 
   readings.date = new Date(Date.now());
@@ -107,66 +99,29 @@ const getReadings = (renogy, callback) => {
   //
   // Get panel state
   //
-  renogy.getPanelState((err, panelState) => {
-    if (err != null) {
-      readings.panelError = err;
-    } else {
-      readings.panel = panelState;
-    }
+  const panelState = await renogy
+    .getPanelState()
+    .catch((err) => (readings.panelError = err));
+  if (panelState) readings.panel = panelState;
+  // Get Battery State
+  //
+  const batteryState = await renogy
+    .getBatteryState()
+    .catch((err) => (readings.batteryError = err));
+  if (batteryState) readings.battery = batteryState;
 
-    //
-    // Get Battery State
-    //
-    renogy.getBatteryState((err, batteryState) => {
-      if (err != null) {
-        readings.batteryError = err;
-      } else {
-        readings.battery = batteryState;
-      }
+  //
+  // Get historical (long running) parameters
+  //
+  const historicalParameters = await renogy
+    .getHistoricalParameters()
+    .catch((err) => (readings.historicalError = err));
+  if (historicalParameters) readings.historical = historicalParameters;
 
-      //
-      // Get historical (long running) parameters
-      //
-      renogy.getHistoricalParameters((err, historicalParameters) => {
-        if (err != null) {
-          readings.historicalError = err;
-        } else {
-          readings.historical = historicalParameters;
-        }
-
-        callback(null, readings);
-      });
-    });
-  });
+  return readings;
 };
 
-//
-// Output as JSON text suitable for logging, cloud HTTP REST uploads, etc.
-//
-var util = require("util");
-
-function outputReadingsAsJSON(readings) {
-  var jsonText;
-
-  if (g_compactJSONOutput) {
-    // This is best for logging, sending remote, etc.
-    jsonText = JSON.stringify(readings);
-  } else {
-    // use node.js pretty print for local print.
-    var inspectOptions = {
-      showHidden: false,
-      depth: null,
-      customInspect: false,
-      colors: false,
-    };
-
-    jsonText = util.inspect(readings, inspectOptions);
-  }
-
-  console.log(jsonText);
-}
-
-function printReadings(readings) {
+const printReadings = (readings) => {
   //
   // Only do detailed print when trace is required.
   //
@@ -215,28 +170,20 @@ function printReadings(readings) {
     console.log("Historical Parameters=");
     console.log(readings.historical);
   }
-}
+};
 
-function convert100thUnits(value) {
-  return value / 100;
-}
+const convert100thUnits = (value) => value / 100;
+const convert10thUnits = (value) => value / 10;
 
-//
-// Unit is 0.1 the value.
-//
-function convert10thUnits(value) {
-  return value / 10;
-}
-
-function main(ac, av) {
-  var port = null;
-  var monitor_interval = 60;
+const main = async (count, args) => {
+  let port = null;
+  let monitor_interval = 60;
 
   if (process.env.RENOGY_ROVER_INTERVAL != null) {
     monitor_interval = parseInt(process.env.RENOGY_ROVER_INTERVAL);
   }
 
-  if (ac == 1) {
+  if (count == 1) {
     //
     // if no port see if its in the environment.
     //
@@ -248,23 +195,23 @@ function main(ac, av) {
       );
       process.exit(1);
     }
-  } else if (ac == 2) {
-    port = av[1];
-  } else if (ac == 3) {
-    port = av[1];
-    monitor_interval = av[2];
+  } else if (count == 2) {
+    port = args[1];
+  } else if (count == 3) {
+    port = args[1];
+    monitor_interval = args[2];
   } else {
-    usage("improper number of arguments " + ac);
+    usage("improper number of arguments " + count);
     process.exit(1);
   }
 
   console.log("port=" + port, " monitor_interval=" + monitor_interval);
 
-  monitorLoop(port, monitor_interval);
+  await monitorLoop(port, monitor_interval);
   return;
-}
+};
 
-function usage(message) {
+const usage = (message) => {
   if (message != null) {
     console.error(message);
   }
@@ -272,13 +219,13 @@ function usage(message) {
   console.error("renogyapp port monitor_interval_in_seconds");
 
   process.exit(1);
-}
+};
 
 //
 // Remove argv[0] to get to the base of the standard arguments.
 // The first argument will now be the script name.
 //
-var args = process.argv.slice(1);
+const args = process.argv.slice(1);
 
 // Invoke main
 main(args.length, args);
