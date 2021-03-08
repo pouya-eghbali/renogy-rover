@@ -1,4 +1,4 @@
-const rover = require("./renogy-rover.js");
+const rover = require("./index.js");
 
 const g_trace = false;
 const g_traceError = true;
